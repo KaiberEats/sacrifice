@@ -5,9 +5,16 @@
 [ext_resource type="Script" uid="uid://bca3u5fmpjuu4" path="res://scripts/sacrifice_input.gd" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/HUD.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/Altar.tscn" id="6"]
+[ext_resource type="PackedScene" path="res://scenes/PauseController.tscn" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/ObservationGate.tscn" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/EndingSequence.tscn" id="9"]
+[ext_resource type="Script" path="res://scripts/restart_controller.gd" id="10"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(900, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ext"]
+size = Vector2(500, 40)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
 size = Vector2(100, 20)
@@ -35,6 +42,28 @@ shape = SubResource("RectangleShape2D_ground")
 [node name="Visual" type="Polygon2D" parent="Ceiling" unique_id=1721242691]
 color = Color(0.29, 0.29, 0.33, 1)
 polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
+
+[node name="GroundExt" type="StaticBody2D" parent="." unique_id=1371796698]
+position = Vector2(700, 300)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundExt" unique_id=905418057]
+shape = SubResource("RectangleShape2D_ext")
+
+[node name="Visual" type="Polygon2D" parent="GroundExt" unique_id=1877458743]
+color = Color(0.29, 0.29, 0.33, 1)
+polygon = PackedVector2Array(-250, -20, 250, -20, 250, 20, -250, 20)
+
+[node name="CeilingExt" type="StaticBody2D" parent="." unique_id=1046044599]
+position = Vector2(700, -40)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CeilingExt" unique_id=122238401]
+shape = SubResource("RectangleShape2D_ext")
+
+[node name="Visual" type="Polygon2D" parent="CeilingExt" unique_id=1675833216]
+color = Color(0.29, 0.29, 0.33, 1)
+polygon = PackedVector2Array(-250, -20, 250, -20, 250, 20, -250, 20)
 
 [node name="PlatformA" type="StaticBody2D" parent="." unique_id=1383001149]
 position = Vector2(-148, 215)
@@ -112,10 +141,41 @@ position = Vector2(60, 248)
 action = 2
 concept_id = "jump"
 
+[node name="AltarPause" parent="." unique_id=525781180 instance=ExtResource("6")]
+position = Vector2(310, 248)
+action = 2
+concept_id = "pause"
+message = "Press E to Sacrifice Pause (Disables Pausing, unreversible)"
+
+[node name="AltarHud" parent="." unique_id=1262269232 instance=ExtResource("6")]
+position = Vector2(520, 248)
+action = 2
+concept_id = "hud"
+message = "Press E to Sacrifice the HUD (Removes status UI permanently, unreversible)"
+
+[node name="ObservationGateHud" parent="." unique_id=819528804 instance=ExtResource("8")]
+position = Vector2(580, 130)
+scale = Vector2(1, 11)
+
+[node name="AltarFourthwall" parent="." unique_id=76037966 instance=ExtResource("6")]
+position = Vector2(880, 248)
+action = 2
+concept_id = "fourthwall"
+message = "Press E to Sacrifice the Fourth Wall (Ends the game, unreversible)"
+
 [node name="SacrificeInput" type="Node" parent="." unique_id=682276743]
 script = ExtResource("4")
 
+[node name="RestartController" type="Node" parent="."]
+process_mode = 3
+script = ExtResource("10")
+
+[node name="PauseController" parent="." unique_id=148004517 instance=ExtResource("7")]
+
 [node name="HUD" parent="." unique_id=384873401 instance=ExtResource("5")]
+
+[node name="EndingSequence" parent="." unique_id=861637290 instance=ExtResource("9")]
+hud_fade_target_path = NodePath("../HUD/Layout")
 
 [node name="Player" parent="." unique_id=1311105246 instance=ExtResource("2")]
 position = Vector2(-380, 260)
