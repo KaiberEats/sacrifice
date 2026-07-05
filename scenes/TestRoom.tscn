@@ -1,0 +1,74 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="1"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(900, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
+size = Vector2(100, 20)
+
+[node name="TestRoom" type="Node2D"]
+
+[node name="Ground" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(0, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground"]
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="Visual" type="Polygon2D" parent="Ground"]
+color = Color(0.29, 0.29, 0.33, 1)
+polygon = PackedVector2Array(-450, -20, 450, -20, 450, 20, -450, 20)
+
+[node name="PlatformA" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(-150, 230)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformA"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="PlatformA"]
+color = Color(0.35, 0.42, 0.5, 1)
+polygon = PackedVector2Array(-50, -10, 50, -10, 50, 10, -50, 10)
+
+[node name="PlatformB" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(50, 160)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="PlatformB"]
+color = Color(0.35, 0.42, 0.5, 1)
+polygon = PackedVector2Array(-50, -10, 50, -10, 50, 10, -50, 10)
+
+[node name="PlatformC" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(230, 220)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformC"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="PlatformC"]
+color = Color(0.35, 0.42, 0.5, 1)
+polygon = PackedVector2Array(-50, -10, 50, -10, 50, 10, -50, 10)
+
+[node name="PlatformD" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+position = Vector2(400, 140)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformD"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="PlatformD"]
+color = Color(0.35, 0.42, 0.5, 1)
+polygon = PackedVector2Array(-50, -10, 50, -10, 50, 10, -50, 10)
+
+[node name="Player" parent="." instance=ExtResource("1")]
+position = Vector2(-380, 260)
