@@ -1,3 +1,8 @@
+> [中文](#lang-zh) | [English](#lang-en) | [日本語](#lang-ja)
+
+---
+
+<a id="lang-zh"></a>
 # 如何快速搭一个可玩关卡
 
 给不熟代码的关卡设计者（C）看的教程。所有东西都通过 Inspector 配置，不需要改脚本。设计权威是 `GDD.md`，本文件只讲"怎么用现有预制体拼出来"。
@@ -42,12 +47,37 @@
 | `Action` | 效果 | 还要填什么 |
 |---|---|---|
 | `UNLOCK` | 解锁一个概念，让它能被数字键切换 | `Concept Id`（如 `"gravity"`）、`Message`（提示文案） |
-| `SET_SLOTS` | 把槽位数改成 `Slot Count` | `Slot Count`（通常填 2）、`Message` |
+| `SET_SLOTS` | 把槽位数改成 `Slot Count` | `Slot Count`（通常填 2）、`Message`。**`Concept Id` 这一档完全不会被读取（见 `altar.gd::_trigger()`），留空即可** |
 | `PERMANENT_SACRIFICE` | 永久牺牲一个概念（不可逆） | `Concept Id`（如 `"jump"`）、`Message` |
 
 - `One Shot` 默认打开：触发一次后这个祭坛不再显示提示、也不再响应。
 - **双槽神龛怎么叠**：在同一个坐标摆两个 `Altar.tscn` 实例，一个设 `Action=SET_SLOTS`、`Slot Count=2`，另一个设 `Action=PERMANENT_SACRIFICE`、`Concept Id="jump"`。玩家站在范围内按一次 `interact`，两个祭坛会同时触发（它们各自独立监听同一次按键）。
 - 提示文字（`Hint`）是祭坛自带的子节点，不用另外加，内容就是 `Message` 字段。
+
+#### `Concept Id` 具体能填什么
+
+`Concept Id` 在代码里就是一个普通字符串字段（`@export var concept_id: String`），Inspector 只给你一个文本框，**不会有下拉菜单，也不会校验拼写**——填错字不会报错，只会"什么都不发生"，是这里最容易踩的坑。
+
+`Sacrifice` 单例本身对字符串没有任何白名单，任何 id 都能正常 unlock/activate/permanently_sacrifice。但**要让这个 id 真正产生游戏效果，必须有别的物体在监听它**。当前项目里只有下面 5 个 id 有对应的监听者：
+
+| id | 该配哪种 `Action` | 效果实现在哪 |
+|---|---|---|
+| `"gravity"` | `UNLOCK` | `player.gd` 里写死判断 `if id != "gravity": return`，翻转重力/`up_direction` |
+| `"blue"` | `UNLOCK` | `BlueObject.tscn`（`blue_object.gd`），其 `concept_id` 字段默认就是 `"blue"` |
+| `"jump"` | `PERMANENT_SACRIFICE` | `player.gd` 里写死判断 `Sacrifice.is_permanently_sacrificed("jump")`，让跳跃缓冲失效 |
+| `"hud"` | `PERMANENT_SACRIFICE` | `hud.gd`（界面淡出）+ `hud_collapse_platforms.gd`（坠落平台） |
+| `"fourthwall"` | `PERMANENT_SACRIFICE` | `ending_sequence.gd`（结局序列） |
+
+`"gravity"`/`"blue"` 只能配 `UNLOCK`（且要在 `SacrificeInput.tscn` 的 `Bindings` 里配好对应按键，见下方 `SacrificeInput.tscn` 一节）；`"jump"`/`"hud"`/`"fourthwall"` 只能配 `PERMANENT_SACRIFICE`——填到别的 `Action` 上没有任何监听者响应，等于白填。
+
+**其他任何字符串**（比如 GDD 储备概念 `"friction"`/`"time"`/`"sound"`，或全新的自定义 id）技术上都能正常触发、正常记录状态，但只要没有配套的监听者，就没有任何可见效果。要让新 id 生效，必须先有人（通常是 B）复制 `blue_object.gd` 或 `hud_collapse_platforms.gd` 改 `concept_id` 加一个监听者——这属于 GDD §7.6"扩展模式"的范围，需要改脚本，不是纯 Inspector 能搞定的。
+
+**三处字符串必须逐字符一致**（区分大小写，Godot 不会做任何校验），是另一个常见坑：
+1. `Altar.tscn` 的 `Concept Id`
+2. 反应物体（`BlueObject.tscn` 等）的 `concept_id`
+3. 如果是可逆概念，还要加 `SacrificeInput.tscn` 的 `Bindings` 字典里对应的**值**
+
+三处只要有一处拼错，效果就会悄悄失效且不报错，务必复制粘贴而不是手打。
 
 ### `BlueObject.tscn` —— 蓝墙/蓝平台
 - 直接当蓝墙/蓝平台用：默认 `concept_id = "blue"`，牺牲 `blue` 时会禁用碰撞+半透明，恢复时反之。
@@ -116,3 +146,297 @@
 9. 按 F5（或"运行当前场景"）：应该能左右移动、跳跃；走到祭坛按 `interact` 解锁 `blue`；按 2 切换后蓝墙变半透明能穿过去；按 R 能重开。
 
 这就是一个最小闭环：地面 + 玩家 + 一个祭坛 + 一个机关。往上叠加更多祭坛/机关/`Ground` 拼区域，就是完整关卡的搭法——参考 `scenes/IntegrationLevel.tscn` 看一条完整的 R1→R6 关卡是怎么用同样的预制体拼起来的。
+
+---
+
+<a id="lang-en"></a>
+# How to Quickly Build a Playable Level
+
+Tutorial for level designers (C) who aren't comfortable with code. Everything is configured through the Inspector — no scripts need to be touched. `GDD.md` is the design authority; this file only explains "how to assemble a level from the existing prefabs."
+
+---
+
+## 1. What a Playable Level Needs at Minimum
+
+Create a `Node2D` as the root node (the level's scene root), then drag these under it:
+
+| Requirement | Node | Notes |
+|---|---|---|
+| Required | One or more `Ground.tscn` instances | You need at least a floor to stand on, or the player will keep falling. |
+| Required | One `Player.tscn` instance | Place it just above the ground (don't embed it inside the floor). |
+| Required | One `SacrificeInput.tscn` instance | Without it, the number keys won't toggle any sacrifice. |
+| Strongly recommended | One `HUD.tscn` instance | Without it the player can't see slot/icon state (GDD §4.1 hard requirement). |
+| As needed | One or more `Altar.tscn` instances | The level's puzzles/progression are all triggered through these. |
+| As needed | One or more `BlueObject.tscn` instances (or copies) | Reactive gimmicks such as blue walls/blue platforms. |
+| As needed | One `RestartController.tscn` instance | **Without this, pressing R won't restart the level.** In this single-scene project, put one in every runnable scene. |
+| As needed (fourthwall ending level) | One `EndingSequence.tscn` instance | Only needed for the level/area that leads to the `fourthwall` altar. |
+
+Everything else is optional gimmicks/decoration.
+
+---
+
+## 2. How to Use Each Prefab
+
+### `Ground.tscn` — Generic floor/platform/ceiling/wall
+- Drag an instance into the scene, then edit two Inspector fields: `size` (width/height in pixels) and `color`.
+- The collision shape and the visible polygon stay in sync with `size` automatically (visible instantly in the editor) — no need to hand-edit `CollisionShape2D` or `Polygon2D`.
+- To stretch it into a narrow/long wall, use the node's built-in `Scale` (instead of changing `size`) — both work, but `size` changes the "base dimensions" while `Scale` stretches on top of that.
+- Defaults to `collision_layer = 1` (world layer) — don't change it.
+
+### `Player.tscn` — The player
+- Place one per level, at the starting position; make sure its Y coordinate doesn't start it embedded in the floor.
+- `collision_layer = 2` (player layer) is fixed — don't change it, or altars/floors won't detect the player.
+- Feel values come from `tuning/default.tres`; this is not something the level itself needs to manage.
+
+### `Altar.tscn` — Altar
+Entering its range only shows the hint text; the player must press `interact` (default E) to actually trigger it. Three key Inspector fields:
+
+| `Action` | Effect | What else to fill in |
+|---|---|---|
+| `UNLOCK` | Unlocks a concept so it can be toggled with a number key | `Concept Id` (e.g. `"gravity"`), `Message` (hint text) |
+| `SET_SLOTS` | Changes the slot count to `Slot Count` | `Slot Count` (usually 2), `Message`. **`Concept Id` is not read at all for this action (see `altar.gd::_trigger()`) — leave it blank** |
+| `PERMANENT_SACRIFICE` | Permanently sacrifices a concept (irreversible) | `Concept Id` (e.g. `"jump"`), `Message` |
+
+- `One Shot` is on by default: once triggered, this altar stops showing its hint and stops responding.
+- **How to stack the double-slot shrine**: place two `Altar.tscn` instances at the same spot — one with `Action=SET_SLOTS`, `Slot Count=2`, the other with `Action=PERMANENT_SACRIFICE`, `Concept Id="jump"`. While standing in range, one press of `interact` triggers both altars at once (each listens to the same key press independently).
+- The hint text (`Hint`) is the altar's own built-in child node — no need to add anything else; its content is just the `Message` field.
+
+#### What exactly can go in `Concept Id`
+
+In code, `Concept Id` is just a plain string field (`@export var concept_id: String`). The Inspector only gives you a text box — **no dropdown, and no spelling validation**. A typo won't throw an error; it will just silently do nothing, which is the easiest trap to fall into here.
+
+The `Sacrifice` singleton itself has no whitelist for strings — any id can be unlocked/activated/permanently sacrificed without error. But **for an id to actually produce a gameplay effect, some other object must be listening for it**. Currently only these 5 ids have a matching listener in the project:
+
+| id | Which `Action` it belongs with | Where the effect is implemented |
+|---|---|---|
+| `"gravity"` | `UNLOCK` | Hardcoded in `player.gd`: `if id != "gravity": return`, flips gravity/`up_direction` |
+| `"blue"` | `UNLOCK` | `BlueObject.tscn` (`blue_object.gd`), whose `concept_id` field defaults to `"blue"` |
+| `"jump"` | `PERMANENT_SACRIFICE` | Hardcoded in `player.gd`: `Sacrifice.is_permanently_sacrificed("jump")` disables the jump buffer |
+| `"hud"` | `PERMANENT_SACRIFICE` | `hud.gd` (UI fade-out) + `hud_collapse_platforms.gd` (falling platforms) |
+| `"fourthwall"` | `PERMANENT_SACRIFICE` | `ending_sequence.gd` (ending sequence) |
+
+`"gravity"`/`"blue"` only make sense with `UNLOCK` (and need a matching key binding in `SacrificeInput.tscn`'s `Bindings`, see the `SacrificeInput.tscn` section below); `"jump"`/`"hud"`/`"fourthwall"` only make sense with `PERMANENT_SACRIFICE` — putting them on any other `Action` has no listener responding, i.e. it's a no-op.
+
+**Any other string** (e.g. the GDD's reserved concepts `"friction"`/`"time"`/`"sound"`, or a brand-new custom id) will technically trigger and record state without error, but produces no visible effect unless a matching listener exists. To make a new id do something, someone (typically B) first needs to copy `blue_object.gd` or `hud_collapse_platforms.gd`, change `concept_id`, and add a listener — this falls under GDD §7.6 "extension pattern" and requires a script change; it can't be done from the Inspector alone.
+
+**Three places must match character-for-character** (case-sensitive, Godot performs no validation) — another common trap:
+1. `Altar.tscn`'s `Concept Id`
+2. The reactive object's (`BlueObject.tscn`, etc.) `concept_id`
+3. For a reversible concept, also the corresponding **value** in `SacrificeInput.tscn`'s `Bindings` dictionary
+
+A typo in any one of the three silently breaks the effect without an error — always copy-paste, don't retype by hand.
+
+### `BlueObject.tscn` — Blue wall/blue platform
+- Use it directly as a blue wall/platform: `concept_id = "blue"` by default; sacrificing `blue` disables its collision and makes it translucent, and restores it when un-sacrificed.
+- Use the node's `Scale` to stretch its size (collision and visuals scale together).
+- To reuse it for a different color/concept: duplicate this scene, change `concept_id` and the `Visual` node's color — no scripting needed.
+
+### `SacrificeInput.tscn` — Input mapping
+- One per level is enough.
+- To add a new key binding: expand the `Bindings` dictionary in the Inspector and add a line `"input_action_name": "concept_id"` (the input action must already exist in Project Settings' Input Map — that step needs a programmer/human; AI is not allowed to touch Project Settings).
+
+### `HUD.tscn` — Status display
+- One per level is enough; nothing needs to be configured. It updates slots and icons automatically purely through the `Sacrifice` singleton's signals.
+
+### `HudCollapsePlatforms.tscn` — The falling-platform set-piece for the `hud` sacrifice
+- Place it near the gap/ledge that needs "extra footholds after sacrificing hud."
+- Add one or more `Marker2D` children underneath it — each Marker2D's position is where one platform will land.
+- Adjustable in the Inspector: `Platform Size`, `Platform Color`, `Drop Height` (starting drop height), `Drop Duration` (fall duration).
+- The platforms only spawn once a nearby `Altar.tscn` (`Action=PERMANENT_SACRIFICE`, `Concept Id="hud"`) is triggered — the two must be placed as a pair.
+
+### `RestartController.tscn` — Press R to restart
+- Place one in every independently runnable/testable scene; no adjustable parameters.
+- Effect: pressing the `restart` key clears all sacrifice state and reloads the current scene.
+
+### `EndingSequence.tscn` — The fourthwall ending
+- Only place one in the level containing the final altar (`PERMANENT_SACRIFICE fourthwall`).
+- After placing it, you must manually wire its `Hud Fade Target Path` field to this level's own `HUD` node's `Layout` (e.g. `../HUD/Layout`), or the HUD won't fade out correctly during the ending.
+
+---
+
+## 3. Collision Layer Setup (the thing beginners forget most)
+
+- **Layer 1 = world entities** (floors, walls, blue-wall type gimmicks). `Ground.tscn`/`BlueObject.tscn` already default to 1 — don't change it.
+- **Layer 2 = player**. `Player.tscn` already defaults to 2 — don't change it.
+- The altar (`Altar.tscn`) is an `Area2D` with `collision_layer=0` (doesn't participate in physics collision itself) and `collision_mask=2` (only detects the player) — these are also the prefab's built-in defaults; normal placement doesn't require changing them.
+- **Common mistake**: accidentally changing some floor/gimmick's `collision_layer` to 2 (the player layer) causes it to "merge" with the player and produces odd collision behavior; or changing `Player`'s layer causes altars to stop detecting the player entering their range, and floors may become walkable-through. If an altar's hint text doesn't appear, or the player passes through what should be solid ground, check whether these two fields were accidentally changed first.
+
+---
+
+## 4. How the Altar's Interact-Confirm Mechanic Affects Placement
+
+- The altar's `CollisionShape2D` (48×64 by default) determines "where the player must stand to see the hint and have the key press take effect." Make sure the player can fully walk into this range when placing it — don't wedge an altar into a gap so narrow the player can't reach its center point.
+- When stacking multiple altars (as with the double-slot shrine), make sure every stacked altar's collision range covers the point where the player stands — the simplest approach is to place them at the exact same coordinates using the default 48×64 range; no extra alignment needed.
+- The hint text (`Hint`) is currently not a `CanvasLayer`, so it can be occluded by any foreground object placed at the same screen position (known issue, see `DEV_STATUS.md` section 4, item 3). When designing a level, avoid stacking other foreground gimmicks directly above an altar.
+
+---
+
+## 5. Two Hard Constraints (Must Be Followed)
+
+1. **GDD §5.4**: If the level uses the "permanently sacrifice `jump` for the double slot" scheme (the default), then from the double-slot shrine onward, all the way to the end of the level, there must be no place that "requires pressing jump to pass" (use gravity flipping to cover all vertical movement instead). Verification method: after sacrificing `jump`, walk through the level again yourself to confirm it's still completable.
+2. **GDD §7.7**: Don't design a puzzle that "requires restoring blue while the character is embedded inside a blue object" — this traps the player inside a wall. Natural level traversal essentially never hits this edge case; just don't deliberately design a solution like "get stuck in the blue wall, then press 2."
+
+---
+
+## 6. Minimal Playable Level Walkthrough
+
+Starting from scratch, follow these steps and it will run:
+
+1. Create a new scene with a `Node2D` root, named whatever you like (e.g. `MyRoom`).
+2. Drag a `Ground.tscn` instance in to serve as the floor, place it around `position = (0, 300)`, set `size` to `(600, 40)`.
+3. Drag a `Player.tscn` instance in, place it just above the floor, e.g. `position = (-200, 260)`.
+4. Drag a `SacrificeInput.tscn` instance in (position doesn't matter — it doesn't display anything).
+5. Drag a `HUD.tscn` instance in.
+6. Drag a `RestartController.tscn` instance in.
+7. Drag an `Altar.tscn` instance in, place it on the ground where the player can reach it, set `Action` to `UNLOCK`, `Concept Id` to `"blue"`, `Message` to a hint sentence such as `"Press E to Sacrifice Blue"`.
+8. Drag a `BlueObject.tscn` instance in, place it in front of the altar blocking further progress, stretch its `Scale` taller to act as a wall.
+9. Press F5 (or "Run Current Scene"): you should be able to move left/right and jump; walking to the altar and pressing `interact` should unlock `blue`; pressing 2 should toggle it, making the blue wall translucent and passable; pressing R should restart.
+
+That's the minimal loop: floor + player + one altar + one gimmick. Stack more altars/gimmicks/`Ground` on top of this to build out full areas — see `scenes/IntegrationLevel.tscn` for a complete R1→R6 level built from the same prefabs.
+
+---
+
+<a id="lang-ja"></a>
+# プレイ可能なレベルを手早く作る方法
+
+コードに詳しくないレベルデザイナー（C）向けのチュートリアル。すべて Inspector で設定でき、スクリプトを変更する必要はない。設計の権威は `GDD.md` であり、本ファイルは「既存のプレハブでレベルをどう組み立てるか」だけを説明する。
+
+---
+
+## 1. プレイ可能なレベルに最低限必要なもの
+
+`Node2D` をルートノード（レベルのシーンルート）として新規作成し、その下に以下をドラッグする：
+
+| 必要度 | ノード | 説明 |
+|---|---|---|
+| 必須 | `Ground.tscn` のインスタンス（1つ以上） | 立てる床が最低限必要。なければプレイヤーは落ち続ける。 |
+| 必須 | `Player.tscn` のインスタンス（1つ） | 地面の少し上に配置する（地面にめり込ませない）。 |
+| 必須 | `SacrificeInput.tscn` のインスタンス（1つ） | これがないと数字キーでの犠牲切り替えが反応しない。 |
+| 強く推奨 | `HUD.tscn` のインスタンス（1つ） | なければプレイヤーはスロット/アイコンの状態が見えない（GDD §4.1 の必須要件）。 |
+| 必要に応じて | `Altar.tscn` のインスタンス（複数可） | レベルのパズル/進行はすべてこれで発火する。 |
+| 必要に応じて | `BlueObject.tscn`（またはその複製、複数可） | 青い壁/青い足場のような反応式ギミック。 |
+| 必要に応じて | `RestartController.tscn` のインスタンス（1つ） | **これを置かないと、そのレベルは R キーでリスタートできない**。単一シーン構成のこのプロジェクトでは、実行可能なシーンごとに1つ置くのが基本。 |
+| 必要に応じて（fourthwall エンディングのレベル） | `EndingSequence.tscn` のインスタンス（1つ） | `fourthwall` の祭壇に到達するレベル/エリアにのみ必要。 |
+
+それ以外はすべて任意のギミック/装飾。
+
+---
+
+## 2. 各プレハブの使い方
+
+### `Ground.tscn` —— 床/足場/天井/壁 汎用
+- インスタンスをシーンにドラッグし、Inspector で `size`（幅と高さ、ピクセル）と `color` の2フィールドを変更する。
+- 当たり判定形状と可視ポリゴンは `size` に自動追従する（変更するとエディタ上で即座に反映される）ので、`CollisionShape2D` や `Polygon2D` を手動で編集する必要はない。
+- 細い壁/長い壁のように引き伸ばしたい場合は、ノード自体が持つ `Scale` を使う（`size` を変えるのではなく）——どちらの方法でも良いが、`size` は「基本サイズ」を変え、`Scale` はそれを土台に全体を拡大縮小する。
+- デフォルトは `collision_layer = 1`（ワールド層）——変更しないこと。
+
+### `Player.tscn` —— プレイヤー
+- レベルごとに1つ配置し、スタート地点に置く。Y座標を地面にめり込んだ状態で開始しないよう注意する。
+- `collision_layer = 2`（プレイヤー層）は固定値——変更しないこと。変更すると祭壇や地面がプレイヤーを検知できなくなる。
+- 操作感の数値は `tuning/default.tres` 由来であり、レベル側で気にする必要はない。
+
+### `Altar.tscn` —— 祭壇
+範囲に入るとヒントテキストが表示されるだけで、プレイヤーが `interact`（デフォルトは E）を押して初めて実際に発火する。Inspector 上の重要な3フィールド：
+
+| `Action` | 効果 | 他に入力すべき項目 |
+|---|---|---|
+| `UNLOCK` | ある概念を解禁し、数字キーで切り替えられるようにする | `Concept Id`（例：`"gravity"`）、`Message`（ヒント文言） |
+| `SET_SLOTS` | スロット数を `Slot Count` に変更する | `Slot Count`（通常は2）、`Message`。**`Concept Id` はこのアクションでは一切読み取られない（`altar.gd::_trigger()` 参照）ので空欄でよい** |
+| `PERMANENT_SACRIFICE` | ある概念を永久に犠牲にする（不可逆） | `Concept Id`（例：`"jump"`）、`Message` |
+
+- `One Shot` はデフォルトでオン：一度発火するとその祭壇はヒントを表示しなくなり、反応もしなくなる。
+- **二重スロットの祭壇（double-slot shrine）の重ね方**：同じ座標に `Altar.tscn` のインスタンスを2つ置く。一方は `Action=SET_SLOTS`、`Slot Count=2`、もう一方は `Action=PERMANENT_SACRIFICE`、`Concept Id="jump"` に設定する。範囲内に立って `interact` を1回押すだけで、両方の祭壇が同時に発火する（それぞれが独立して同じキー入力を監視しているため）。
+- ヒントテキスト（`Hint`）は祭壇が最初から持つ子ノードなので、別途追加する必要はなく、内容は `Message` フィールドそのものである。
+
+#### `Concept Id` に具体的に何を入力できるか
+
+コード上、`Concept Id` はただの文字列フィールド（`@export var concept_id: String`）である。Inspector はテキストボックスを表示するだけで、**ドロップダウンもスペルチェックもない**——入力ミスをしてもエラーにはならず、ただ「何も起きない」だけになる。これが最も陥りやすい罠である。
+
+`Sacrifice` シングルトン自体は文字列に対して一切のホワイトリストを持たない——どんな id でも unlock/activate/permanently_sacrifice できてしまう。しかし**その id が実際にゲーム上の効果を生むには、それを監視している別のオブジェクトが必要**である。現在のプロジェクトで対応するリスナーがあるのは、次の5つの id だけである：
+
+| id | どの `Action` に対応するか | 効果の実装箇所 |
+|---|---|---|
+| `"gravity"` | `UNLOCK` | `player.gd` にハードコードされた判定 `if id != "gravity": return` により重力/`up_direction` を反転させる |
+| `"blue"` | `UNLOCK` | `BlueObject.tscn`（`blue_object.gd`）。その `concept_id` フィールドはデフォルトで `"blue"` |
+| `"jump"` | `PERMANENT_SACRIFICE` | `player.gd` にハードコードされた判定 `Sacrifice.is_permanently_sacrificed("jump")` によりジャンプバッファを無効化する |
+| `"hud"` | `PERMANENT_SACRIFICE` | `hud.gd`（UI のフェードアウト）+ `hud_collapse_platforms.gd`（落下する足場） |
+| `"fourthwall"` | `PERMANENT_SACRIFICE` | `ending_sequence.gd`（エンディング演出） |
+
+`"gravity"`/`"blue"` は `UNLOCK` としてのみ意味を持つ（また `SacrificeInput.tscn` の `Bindings` に対応するキー割り当てが必要。下記の `SacrificeInput.tscn` の節を参照）。`"jump"`/`"hud"`/`"fourthwall"` は `PERMANENT_SACRIFICE` としてのみ意味を持つ——それ以外の `Action` に入れても、反応するリスナーが存在しないため何も起きない。
+
+**それ以外の任意の文字列**（例えば GDD の予備概念 `"friction"`/`"time"`/`"sound"`、あるいは完全に新規の独自 id）は、技術的には正常に発火し状態も正常に記録されるが、対応するリスナーがなければ目に見える効果は一切ない。新しい id を機能させるには、まず誰か（通常は B）が `blue_object.gd` か `hud_collapse_platforms.gd` を複製して `concept_id` を変更し、リスナーを追加する必要がある——これは GDD §7.6「拡張パターン」の範囲であり、スクリプトの変更を伴うため、Inspector だけでは完結しない。
+
+**3箇所の文字列は一字一句完全に一致していなければならない**（大文字小文字を区別し、Godot は一切の検証を行わない）。これも陥りやすい罠のひとつ：
+1. `Altar.tscn` の `Concept Id`
+2. 反応オブジェクト（`BlueObject.tscn` など）の `concept_id`
+3. 可逆的な概念の場合は、さらに `SacrificeInput.tscn` の `Bindings` 辞書に対応する**値**
+
+この3箇所のいずれか1つでも打ち間違えると、エラーも出ずに効果だけが静かに失われる。手入力せず必ずコピー&ペーストすること。
+
+### `BlueObject.tscn` —— 青い壁/青い足場
+- そのまま青い壁/足場として使う：デフォルトで `concept_id = "blue"`。`blue` を犠牲にすると当たり判定が無効化され半透明になり、元に戻すと復元される。
+- ノードの `Scale` でサイズを引き伸ばす（当たり判定と見た目が一緒に拡大縮小する）。
+- 別の色/概念用に再利用する場合：このシーンを複製し、`concept_id` と `Visual` の色を変更するだけでよい。スクリプトに触れる必要はない。
+
+### `SacrificeInput.tscn` —— 入力マッピング
+- レベルごとに1つで十分。
+- 新しいキー割り当てを追加する場合：Inspector で `Bindings` 辞書を展開し、`"入力アクション名": "concept_id"` の行を追加する（その入力アクションは事前に Project Settings の Input Map に存在している必要がある——この手順はプログラマー/人間が行う必要があり、AI は Project Settings に触れてはならない）。
+
+### `HUD.tscn` —— ステータス表示
+- レベルごとに1つで十分。設定は何も要らず、`Sacrifice` シングルトンのシグナルだけでスロットとアイコンが自動更新される。
+
+### `HudCollapsePlatforms.tscn` —— `hud` 犠牲時の落下足場セットピース
+- 「`hud` を犠牲にした後に足場が増える」ことを想定した隙間/高台の近くに配置する。
+- その子として `Marker2D` を1つ以上追加する。各 `Marker2D` の位置が、足場が最終的に着地する位置になる。
+- Inspector で調整可能：`Platform Size`、`Platform Color`、`Drop Height`（落下開始の高さ）、`Drop Duration`（落下にかかる時間）。
+- 近くに配置した `Altar.tscn`（`Action=PERMANENT_SACRIFICE`、`Concept Id="hud"`）が発火して初めてこれらの足場が生成される——両者はペアで配置する必要がある。
+
+### `RestartController.tscn` —— R キーでのリスタート
+- 独立して実行/テストできるシーンごとに1つ置けばよく、調整可能なパラメータはない。
+- 効果：`restart` キーを押すと、すべての犠牲状態をクリアし現在のシーンをリロードする。
+
+### `EndingSequence.tscn` —— fourthwall エンディング
+- 最終祭壇（`PERMANENT_SACRIFICE fourthwall`）を含むレベルにのみ1つ配置する。
+- 配置後は、`Hud Fade Target Path` フィールドを手動でそのレベル自身の `HUD` ノード配下の `Layout`（例：`../HUD/Layout`）に接続する必要がある。接続しないと、エンディング再生時に HUD が正しくフェードアウトしない。
+
+---
+
+## 3. 当たり判定レイヤーの設定（初心者が最も忘れやすい点）
+
+- **Layer 1 = ワールド実体**（地面、壁、青い壁のようなギミック）。`Ground.tscn`/`BlueObject.tscn` はデフォルトですでに 1 になっている——変更しないこと。
+- **Layer 2 = プレイヤー**。`Player.tscn` はデフォルトですでに 2 になっている——変更しないこと。
+- 祭壇（`Altar.tscn`）は `Area2D` であり、`collision_layer=0`（自身は物理衝突に関与しない）、`collision_mask=2`（プレイヤーのみを検知）——これらもプレハブ標準のデフォルト値であり、通常の配置では変更不要。
+- **よくあるミス**：誤って地面/ギミックの `collision_layer` を 2（プレイヤー層）に変更してしまうと、プレイヤーと「融合」してしまい当たり判定がおかしくなる。あるいは `Player` の層を変えてしまうと、祭壇がプレイヤーの侵入を検知できなくなったり、地面をすり抜けてしまったりすることがある。配置後に祭壇のヒントが出なかったり、本来実体であるはずの地面をプレイヤーがすり抜けたりした場合は、まずこの2つのフィールドが誤って変更されていないか確認すること。
+
+---
+
+## 4. 祭壇の interact 確認方式が配置に与える影響
+
+- 祭壇の `CollisionShape2D`（デフォルトは 48×64）が「プレイヤーがどこに立てばヒントが見えてキー入力が有効になるか」を決める。配置する際はプレイヤーが全身でこの範囲に入れることを確認し、中心点に届かないような狭い隙間に祭壇を押し込まないこと。
+- 複数の祭壇を重ねる場合（二重スロットの祭壇のような使い方）、重ねたすべての祭壇の当たり判定範囲がプレイヤーの立つ地点を同時にカバーしている必要がある——最も簡単なのは、まったく同じ座標に配置し、デフォルトの 48×64 の範囲をそのまま使うことで、追加の調整は不要である。
+- ヒントテキスト（`Hint`）は現状 `CanvasLayer` ではないため、同じ画面位置に配置された前景オブジェクトに隠れてしまうことがある（既知の問題、`DEV_STATUS.md` 第4節第3項を参照）。レベル設計時は、祭壇の真上に別の前景ギミックを重ねないよう注意すること。
+
+---
+
+## 5. 守るべき2つのハード制約
+
+1. **GDD §5.4**：レベルが「`jump` を永久犠牲にして二重スロットと交換する」という方式（デフォルトの方式）を採用している場合、二重スロットの祭壇より先、クリアに至るまでの全区間で「ジャンプキーを押さなければ通れない」箇所があってはならない（重力反転を使ってすべての垂直移動をカバーする）。検証方法：`jump` を犠牲にした後、自分で最初から歩き直してクリアできることを確認する。
+2. **GDD §7.7**：「キャラクターが青いオブジェクトの内部に埋まった状態で青を実体に戻さなければならない」パズルを設計しないこと——プレイヤーが壁の中に閉じ込められてしまう。自然なレベルの進み方ではこの境界にほぼ遭遇しない。「青い壁の中に入り込んでから2を押す」というような解法をわざと設計しなければ問題ない。
+
+---
+
+## 6. 最小限のプレイ可能なレベルの組み立て例
+
+ゼロから始めて、この手順どおりに進めれば動くようになる：
+
+1. 新しいシーンを作成し、ルートノードを `Node2D` にする。名前は何でもよい（例：`MyRoom`）。
+2. `Ground.tscn` のインスタンスを地面としてドラッグし、`position = (0, 300)` あたりに配置し、`size` を `(600, 40)` に設定する。
+3. `Player.tscn` のインスタンスをドラッグし、地面のすぐ上、例えば `position = (-200, 260)` に配置する。
+4. `SacrificeInput.tscn` のインスタンスをドラッグする（位置はどこでもよい。何も表示されない）。
+5. `HUD.tscn` のインスタンスをドラッグする。
+6. `RestartController.tscn` のインスタンスをドラッグする。
+7. `Altar.tscn` のインスタンスをドラッグし、地面の上、プレイヤーが歩いて行ける位置に配置する。`Action` を `UNLOCK` に、`Concept Id` を `"blue"` に、`Message` にはヒント文、例えば `"Press E to Sacrifice Blue"` を入力する。
+8. `BlueObject.tscn` のインスタンスをドラッグし、祭壇の前方に置いて先へ進めないようにふさぐ。`Scale` を縦に伸ばして壁のようにする。
+9. F5（または「現在のシーンを実行」）を押す：左右移動とジャンプができるはず。祭壇まで歩いて `interact` を押すと `blue` が解禁される。2 を押すと切り替わり、青い壁が半透明になって通り抜けられるようになる。R を押すとリスタートできる。
+
+これが最小のループである：地面 + プレイヤー + 祭壇1つ + ギミック1つ。この上にさらに祭壇/ギミック/`Ground` を積み重ねてエリアを組み立てれば、それが完全なレベルの作り方になる——同じプレハブを使って組み立てられた完全な R1→R6 のレベルについては `scenes/IntegrationLevel.tscn` を参照。

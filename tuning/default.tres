@@ -4,4 +4,5 @@
 
 [resource]
 script = ExtResource("1")
-jump_height = 74.0
+move_speed = 280.0
+jump_height = 150.0

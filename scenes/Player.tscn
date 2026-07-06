@@ -8,6 +8,7 @@
 size = Vector2(24, 40)
 
 [node name="Player" type="CharacterBody2D" unique_id=1287081948]
+top_level = true
 collision_layer = 2
 script = ExtResource("1")
 config = ExtResource("2")
